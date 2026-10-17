@@ -33,6 +33,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 VENV_DIR = os.path.join(SCRIPT_DIR, ".venv")
 VENV_BIN = os.path.join(VENV_DIR, "bin")
 VENV_PYTHON = os.path.join(VENV_BIN, "python")
+DEFAULT_PROFILE_DIR = os.path.expanduser("~/.home-browser-profile")
 
 # Tailscale & System Utilities
 # =====================================================================
@@ -199,6 +200,47 @@ def cmd_fetch(args):
 
 
 # =====================================================================
+# Login Command (Persistent Session & 2FA Setup)
+# =====================================================================
+
+def cmd_login(args):
+    """Open visible browser on this machine so user can log into Amazon/sites and save session."""
+    url = args.url or "https://www.amazon.com"
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url
+
+    profile_dir = os.path.expanduser(args.profile_dir)
+    os.makedirs(profile_dir, exist_ok=True)
+
+    print("=" * 60)
+    print(f"  Opening Visible Browser for Login: {url}")
+    print("=" * 60)
+    print(f"Profile directory: {profile_dir}")
+    print("\n👉 Log into your account (Amazon, etc.), solve any 2FA/SMS codes,")
+    print("   and then simply CLOSE the browser window when finished.\n")
+
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        context = p.chromium.launch_persistent_context(
+            user_data_dir=profile_dir,
+            headless=False,
+            channel="chrome" if os.path.exists("/Applications/Google Chrome.app") else None,
+            args=["--no-first-run", "--no-default-browser-check"]
+        )
+        page = context.new_page() if not context.pages else context.pages[0]
+        page.goto(url)
+        print("Waiting for browser window to be closed...")
+        try:
+            page.wait_for_event("close", timeout=0)
+        except Exception:
+            pass
+        context.close()
+
+    print("\n✅ Success! Your login session and cookies are saved in ~/.home-browser-profile.")
+    print("   Muse and other bots will now automatically use your logged-in session!\n")
+
+
+# =====================================================================
 # Test Diagnostics Command
 # =====================================================================
 
@@ -273,7 +315,10 @@ def resolve_server_cmd(cmd_arg: str | None = None, host: str | None = None, engi
     if host:
         if engine in ("scrapling", "stealth"):
             return ["ssh", host, "scrapling-mcp"]
-        return ["ssh", host, "npx", "-y", "@playwright/mcp", "--headless"]
+        base = ["ssh", host, "npx", "-y", "@playwright/mcp", "--headless"]
+        if os.path.exists(DEFAULT_PROFILE_DIR):
+            base.extend(["--user-data-dir", "~/.home-browser-profile"])
+        return base
 
     # Local fallback
     if engine in ("scrapling", "stealth"):
@@ -281,7 +326,10 @@ def resolve_server_cmd(cmd_arg: str | None = None, host: str | None = None, engi
         if os.path.exists(scrapling_bin):
             return [scrapling_bin]
         return ["scrapling-mcp"]
-    return ["npx", "-y", "@playwright/mcp", "--headless"]
+    base = ["npx", "-y", "@playwright/mcp", "--headless"]
+    if os.path.exists(DEFAULT_PROFILE_DIR):
+        base.extend(["--user-data-dir", DEFAULT_PROFILE_DIR])
+    return base
 
 
 async def run_mcp_plan(plan: list[dict], cmd: list[str]) -> list[dict]:
@@ -332,6 +380,8 @@ def cmd_drive(args):
         with open(args.out, "w") as f:
             json.dump(out, f, indent=2)
         print(f"wrote {args.out} ({len(json.dumps(out))} bytes)")
+    elif getattr(args, "full", False) or not sys.stdout.isatty():
+        print(json.dumps(out, indent=2))
     else:
         short = {"results": [{**r, "output": truncate_text(r["output"])} for r in results]}
         print(json.dumps(short, indent=2))
@@ -357,25 +407,35 @@ class HomeBrowser:
         except ImportError:
             if os.path.exists(VENV_PYTHON):
                 proc = subprocess.run(
-                    [VENV_PYTHON, os.path.join(SCRIPT_DIR, "hbm.py"), "drive"],
+                    [VENV_PYTHON, os.path.join(SCRIPT_DIR, "hbm.py"), "drive", "--full"],
                     input=json.dumps(plan),
                     text=True,
                     capture_output=True,
                     check=True
                 )
-                return json.loads(proc.stdout).get("results", [])
+                stdout = proc.stdout
+                start = stdout.find("{")
+                if start != -1:
+                    stdout = stdout[start:]
+                return json.loads(stdout).get("results", [])
             raise
 
-    def fetch(self, url: str, extraction_type: str = "markdown", solve_cloudflare: bool = True) -> dict:
+    def fetch(self, url: str, extraction_type: str = "markdown", solve_cloudflare: bool = True, wait: int | None = None, network_idle: bool = True) -> dict:
         """Fetch URL with Scrapling stealth, returning raw result data."""
-        plan = [{
-            "tool": "stealthy_fetch",
-            "args": {
-                "url": url,
-                "extraction_type": extraction_type,
-                "solve_cloudflare": solve_cloudflare
-            }
-        }]
+        # Amazon and dynamic sites serve a 202 JS handshake that requires network settle:
+        if wait is None and "amazon." in url.lower():
+            wait = 2000
+
+        args = {
+            "url": url,
+            "extraction_type": extraction_type,
+            "solve_cloudflare": solve_cloudflare,
+            "network_idle": network_idle
+        }
+        if wait:
+            args["wait"] = wait
+
+        plan = [{"tool": "stealthy_fetch", "args": args}]
         res = self.execute_plan(plan)
         if not res or not res[0].get("ok"):
             err = res[0].get("output") if res else "Unknown error"
@@ -385,9 +445,9 @@ class HomeBrowser:
         except Exception:
             return {"raw": res[0]["output"]}
 
-    def fetch_markdown(self, url: str, solve_cloudflare: bool = True) -> str:
+    def fetch_markdown(self, url: str, solve_cloudflare: bool = True, wait: int | None = None, network_idle: bool = True) -> str:
         """Fetch URL and return clean LLM Markdown string."""
-        data = self.fetch(url, extraction_type="markdown", solve_cloudflare=solve_cloudflare)
+        data = self.fetch(url, extraction_type="markdown", solve_cloudflare=solve_cloudflare, wait=wait, network_idle=network_idle)
         content = data.get("content", [])
         if isinstance(content, list):
             return "\n\n".join(str(c) for c in content if c)
@@ -433,6 +493,12 @@ def main():
     drive_parser.add_argument("--host", default=None, help="SSH host target")
     drive_parser.add_argument("--engine", default="scrapling", help="Engine (scrapling or playwright)")
     drive_parser.add_argument("--out", default=None, help="File to write full JSON results")
+    drive_parser.add_argument("--full", action="store_true", help="Output full JSON without truncation")
+
+    # login
+    login_parser = subparsers.add_parser("login", help="Open visible browser to log into Amazon/sites and save session")
+    login_parser.add_argument("url", nargs="?", default="https://www.amazon.com", help="URL to log into (default: amazon.com)")
+    login_parser.add_argument("--profile-dir", default=DEFAULT_PROFILE_DIR, help="Path to persistent browser profile")
 
     # serve
     serve_parser = subparsers.add_parser("serve", help="Run the MCP server directly")
@@ -448,13 +514,15 @@ def main():
             sys.exit(0)
 
     # Legacy support: if flags like --cmd or --out or --engine are passed at top level
-    if sys.argv[1].startswith("-"):
+    if sys.argv[1].startswith("-") and sys.argv[1] not in ("-h", "--help"):
         sys.argv.insert(1, "drive")
 
     parsed = parser.parse_args()
 
     if parsed.command == "setup":
         cmd_setup(parsed)
+    elif parsed.command == "login":
+        cmd_login(parsed)
     elif parsed.command == "info":
         cmd_info(parsed)
     elif parsed.command == "test":

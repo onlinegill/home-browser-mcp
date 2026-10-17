@@ -97,12 +97,31 @@ The repo provides a single executable tool `./hbm` that auto-detects its environ
 # Fetch any website with Cloudflare bypass -> clean LLM Markdown
 ./hbm fetch https://protected-site.com/products
 
+# Log into Amazon or other accounts once with 2FA to save persistent session
+./hbm login amazon.com
+
 # Show Tailscale connection info and connection snippets
 ./hbm info
 
 # Execute multi-step JSON plan from stdin
 ./hbm drive < plan.json
 ```
+
+---
+
+## 🔐 Logging Into Amazon & Accounts (Session Persistence)
+
+To let Muse or your AI assistant access your logged-in Amazon account (cart, orders, Prime prices, search) without asking Muse to handle passwords or 2FA:
+
+1. **On your home Mac/PC, run:**
+   ```bash
+   ./hbm login amazon.com
+   ```
+2. A visible browser window will open on your Mac with the persistent profile directory `~/.home-browser-profile`.
+3. Sign into your Amazon account, approve your 2FA / SMS prompt, check **"Keep me signed in"**, and simply **close the browser window**.
+4. That's it! Your session cookies and storage tokens remain saved locally in `~/.home-browser-profile`.
+5. Whenever Muse, Claude, or Groq runs an interactive browser session, **Home-Browser MCP automatically loads this profile**. Amazon will recognize your logged-in session immediately.
+
 
 ---
 
