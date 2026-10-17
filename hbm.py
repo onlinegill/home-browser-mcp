@@ -34,11 +34,6 @@ VENV_DIR = os.path.join(SCRIPT_DIR, ".venv")
 VENV_BIN = os.path.join(VENV_DIR, "bin")
 VENV_PYTHON = os.path.join(VENV_BIN, "python")
 
-# Auto re-exec inside local .venv if not already active
-if sys.prefix == sys.base_prefix and os.path.exists(VENV_PYTHON):
-    if len(sys.argv) < 2 or sys.argv[1] != "setup":
-        os.execv(VENV_PYTHON, [VENV_PYTHON] + sys.argv)
-
 # Tailscale & System Utilities
 # =====================================================================
 
@@ -356,7 +351,20 @@ class HomeBrowser:
 
     def execute_plan(self, plan: list[dict]) -> list[dict]:
         server_cmd = resolve_server_cmd(cmd_arg=self.cmd, host=self.host, engine=self.engine)
-        return asyncio.run(run_mcp_plan(plan, server_cmd))
+        try:
+            from mcp import ClientSession
+            return asyncio.run(run_mcp_plan(plan, server_cmd))
+        except ImportError:
+            if os.path.exists(VENV_PYTHON):
+                proc = subprocess.run(
+                    [VENV_PYTHON, os.path.join(SCRIPT_DIR, "hbm.py"), "drive"],
+                    input=json.dumps(plan),
+                    text=True,
+                    capture_output=True,
+                    check=True
+                )
+                return json.loads(proc.stdout).get("results", [])
+            raise
 
     def fetch(self, url: str, extraction_type: str = "markdown", solve_cloudflare: bool = True) -> dict:
         """Fetch URL with Scrapling stealth, returning raw result data."""
@@ -391,6 +399,11 @@ class HomeBrowser:
 # =====================================================================
 
 def main():
+    # Auto re-exec inside local .venv if not already active
+    if sys.prefix == sys.base_prefix and os.path.exists(VENV_PYTHON):
+        if len(sys.argv) < 2 or sys.argv[1] != "setup":
+            os.execv(VENV_PYTHON, [VENV_PYTHON] + sys.argv)
+
     parser = argparse.ArgumentParser(
         prog="hbm",
         description="Home-Browser MCP: One-Click Tool for residential IP browsing, Cloudflare bypass & MCP"
