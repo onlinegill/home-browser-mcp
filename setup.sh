@@ -31,7 +31,12 @@ $PYTHON_BIN hbm.py setup
 echo "Making ./hbm executable..."
 chmod +x hbm hbm.py mcp_drive.py
 
+if [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
+    ln -sf "$SCRIPT_DIR/hbm" "$HOME/.local/bin/hbm"
+    echo "Linked 'hbm' globally to ~/.local/bin/hbm"
+fi
+
 echo "============================================================"
 echo "  🎉 All Done! Test it right now with:"
-echo "     ./hbm fetch https://example.com"
+echo "     hbm fetch https://example.com"
 echo "============================================================"
