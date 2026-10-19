@@ -128,59 +128,132 @@ To let Muse or your AI assistant access your logged-in Amazon account (cart, ord
 
 ---
 
-## For Muse & Groq Bots (Python SDK)
+## 🤖 Connecting & Using With Muse Agent (Step-by-Step)
 
-Import `HomeBrowser` directly into your bot pipeline:
-
-```python
-from hbm import HomeBrowser
-
-# Connect to your home PC over Tailscale
-hb = HomeBrowser(host="user@100.x.y.z")
-
-# Fetch any site through home residential IP + Scrapling stealth:
-# (Automatically bypasses Cloudflare Turnstile and returns clean LLM Markdown)
-markdown_content = hb.fetch_markdown("https://target-store.com/deal")
-print(markdown_content)
-```
-
-### CLI / Shell Integration for Any Cloud Bot
+### Step 1: Get Your Personalized Connection Info
+Run `./hbm config` on your home computer or server. It automatically detects your Tailscale IP, username, and binary paths:
 ```bash
-export HBM_SSH_HOST="user@100.x.y.z"
-./hbm fetch https://target-store.com/deal
+./hbm config
 ```
 
 ---
 
-## Setup for Native MCP Clients (Claude Desktop, Cursor, Claude Code)
+### Step 2: How to Ask Muse to Add the Connection
 
-### Claude Desktop
-Add to `claude_desktop_config.json`:
+Depending on how you interact with Muse, use one of the following methods:
+
+#### Method A: By Prompting Muse Agent in Chat
+Send this exact prompt to your Muse agent:
+
+> *"I want you to connect to my home browser MCP server so you can browse the web through my home residential IP and bypass anti-bot blocks. Please connect to the MCP server named `home-browser` using this command:*
+> 
+> `ssh user@<tailscale-ip> /path/to/home-browser-mcp/.venv/bin/scrapling-mcp`
+> 
+> *Once connected, confirm which tools are available."*
+
+*(Replace `user@<tailscale-ip>` and the path with the values printed by `./hbm config`)*.
+
+#### Method B: In Muse / Client MCP Settings (`mcp.json`)
+If your Muse client or assistant has an MCP configuration file:
 
 ```json
 {
   "mcpServers": {
-    "home-stealth-browser": {
+    "home-browser": {
       "command": "ssh",
       "args": [
-        "user@100.x.y.z",
-        "~/.venv/bin/scrapling-mcp"
-      ]
-    },
-    "home-interactive-browser": {
-      "command": "ssh",
-      "args": [
-        "user@100.x.y.z",
-        "npx", "-y", "@playwright/mcp", "--headless"
+        "user@<tailscale-ip>",
+        "/path/to/home-browser-mcp/.venv/bin/scrapling-mcp"
       ]
     }
   }
 }
 ```
 
-### Claude Code
+*(If Muse runs on the exact same machine as Home-Browser MCP, omit `"command": "ssh"` and simply put `"command": "/path/to/home-browser-mcp/.venv/bin/scrapling-mcp"`)*.
+
+---
+
+### Step 3: Example Prompts to Ask Muse Agent
+
+Once connected, ask Muse to browse, search, or scrape naturally:
+
+#### 🛍️ 1. Search Amazon & Compare Products
+> *"Use the `home-browser` tool to open amazon.com and search for 'wireless noise cancelling headphones'. Give me a comparison of the top 3 results including price, Prime shipping availability, and customer rating."*
+
+#### 🛡️ 2. Read Cloudflare / Protected Sites
+> *"Fetch the article at `https://protected-site.com/deep-dive` using `home-browser`. It has Cloudflare Turnstile protection, so make sure to fetch it through my home browser tool and summarize the key takeaways in bullet points."*
+
+#### 🛒 3. Check Logged-in Cart or Orders (Amazon / Retail)
+> *(Make sure you ran `./hbm login amazon.com` once beforehand on your home machine)*  
+> *"Use `home-browser` to check my Amazon cart at https://www.amazon.com/gp/cart/view.html and list the items and total estimated cost."*
+
+#### 📉 4. Stock & Price Monitoring
+> *"Check https://www.amazon.com/dp/B08N5WRWNW using `home-browser`. Tell me if it is currently in stock, who the seller is, and what the current price is."*
+
+---
+
+## 🐍 For Muse & Groq Bots (Python SDK)
+
+If you are building custom Muse bot workflows, Groq pipelines, or LangChain agents in Python:
+
+```python
+from hbm import HomeBrowser
+
+# Connect to your home PC over Tailscale (or omit host if running locally):
+hb = HomeBrowser(host="user@100.x.y.z")
+
+# Fetch any site through home residential IP + Scrapling stealth:
+# (Automatically bypasses Cloudflare Turnstile and returns clean LLM Markdown)
+markdown_content = hb.fetch_markdown("https://amazon.com/s?k=mechanical+keyboard")
+print(markdown_content)
+```
+
+### CLI / Shell Integration for Any Cloud Bot
 ```bash
-claude mcp add home-stealth -- ssh user@100.x.y.z scrapling-mcp
+export HBM_SSH_HOST="user@100.x.y.z"
+./hbm fetch amazon.com
+```
+
+---
+
+## 💻 Setup for Other MCP Clients (Cursor, Claude Desktop, Windsurf, Cline)
+
+Run `./hbm config` to see your exact paths pre-filled, or use the templates below:
+
+### Cursor (`.cursor/mcp.json` or `~/.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "home-browser": {
+      "command": "ssh",
+      "args": [
+        "user@100.x.y.z",
+        "/path/to/home-browser-mcp/.venv/bin/scrapling-mcp"
+      ]
+    }
+  }
+}
+```
+
+### Claude Desktop (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "home-browser": {
+      "command": "ssh",
+      "args": [
+        "user@100.x.y.z",
+        "/path/to/home-browser-mcp/.venv/bin/scrapling-mcp"
+      ]
+    }
+  }
+}
+```
+
+### Claude Code CLI
+```bash
+claude mcp add home-browser -- ssh user@100.x.y.z "/path/to/home-browser-mcp/.venv/bin/scrapling-mcp"
 ```
 
 ---
