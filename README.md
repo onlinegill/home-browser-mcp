@@ -100,7 +100,10 @@ The repo provides a single executable tool `./hbm` that auto-detects its environ
 # Log into Amazon or other accounts once with 2FA to save persistent session
 ./hbm login amazon.com
 
-# Show Tailscale connection info and connection snippets
+# Show copy-pasteable MCP & AI bot configs (Claude, Cursor, Muse, Groq)
+./hbm config
+
+# Show raw network and Tailscale status
 ./hbm info
 
 # Execute multi-step JSON plan from stdin

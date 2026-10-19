@@ -69,10 +69,8 @@ elif [ -x "$HOME/.local/bin/hbm" ] && echo ":$PATH:" | grep -q ":$HOME/.local/bi
 fi
 
 echo "============================================================"
-echo "  🎉 All Done! Test it right now with:"
-echo "     $CMD_CALL fetch https://example.com"
-if [ "$CMD_CALL" = "./hbm" ]; then
-    echo ""
-    echo "  (Use '$CMD_CALL' while in this directory, or add ~/.local/bin to your PATH)"
-fi
+echo "  🎉 Setup Finished! Generating your AI & MCP configs..."
 echo "============================================================"
+
+# Display the ready-to-copy AI & MCP configuration snippets
+"$SCRIPT_DIR/hbm" config

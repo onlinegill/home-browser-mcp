@@ -138,35 +138,108 @@ def cmd_setup(args):
         print(" Tailscale:     Not detected or not logged in. Run 'tailscale up' to connect.")
 
     print(f" SSH Service:   {'Running (Port 22 open)' if ssh_ok else 'Port 22 not responding (Enable Remote Login / sshd)'}")
-    print("\n" + "-" * 60)
-    print("  Configuration Snippets for Your AI Assistants / Bots")
-    print("-" * 60)
+    print("=" * 60)
 
+
+# =====================================================================
+# Config Command (Display AI & MCP Integration Snippets)
+# =====================================================================
+
+def cmd_config(args=None):
+    """Display copy-pasteable configuration snippets for AI bots, Muse, Cursor, and Claude."""
+    ts_ip = get_tailscale_ip()
+    user = get_current_user()
+    ssh_ok = check_ssh_service()
     host_target = f"{user}@{ts_ip if ts_ip else '<home-pc-tailscale-ip>'}"
+    scrapling_bin = os.path.join(VENV_BIN, "scrapling-mcp")
 
-    print("\n[For Muse & Groq Python Bots]")
-    print(f"""from hbm import HomeBrowser
+    # Detect if hbm is accessible as 'hbm' or './hbm'
+    hbm_call = "hbm" if shutil.which("hbm") else "./hbm"
 
-hb = HomeBrowser(host="{host_target}")
-# Automatically bypasses Cloudflare and returns clean LLM Markdown:
-markdown = hb.fetch_markdown("https://example.com")
-print(markdown)
-""")
+    print("\n" + "=" * 80)
+    print("  🤖 HOME-BROWSER MCP — AI AGENT & CLIENT CONFIGURATION")
+    print("=" * 80)
 
-    print("\n[For Claude Desktop (claude_desktop_config.json)]")
-    desktop_cfg = {
+    print("\n📍 System & Network Status:")
+    if ts_ip:
+        print(f"  • Tailscale IP    : {ts_ip}")
+        print(f"  • SSH Remote Host : {host_target}")
+    else:
+        print("  • Tailscale IP    : Not connected (Run 'tailscale up' to get IP)")
+        print(f"  • SSH Remote Host : {user}@<tailscale-ip>")
+    print(f"  • SSH Port 22     : {'Active & Reachable' if ssh_ok else 'Not detected (Ensure sshd is running)'}")
+    print(f"  • Scrapling MCP   : {scrapling_bin}")
+
+    # Section 1: JSON for Claude Desktop, Cursor, Windsurf, Cline
+    print("\n" + "-" * 80)
+    print(" 1️⃣  MCP CLIENT CONFIG (Claude Desktop, Cursor, Windsurf, Cline)")
+    print("-" * 80)
+    print("👉 Add to your client's MCP configuration (e.g., claude_desktop_config.json or .cursor/mcp.json):")
+    
+    remote_cfg = {
         "mcpServers": {
-            "home-stealth": {
+            "home-browser": {
                 "command": "ssh",
-                "args": [host_target, f"{VENV_BIN}/scrapling-mcp"]
+                "args": [
+                    host_target,
+                    scrapling_bin
+                ]
             }
         }
     }
-    print(json.dumps(desktop_cfg, indent=2))
+    local_cfg = {
+        "mcpServers": {
+            "home-browser": {
+                "command": scrapling_bin
+            }
+        }
+    }
 
-    print("\n[For Claude Code CLI]")
-    print(f'claude mcp add home-stealth -- ssh {host_target} "{VENV_BIN}/scrapling-mcp"')
-    print("-" * 60 + "\n")
+    print("\n[Option A: Remote Access — for AI clients on your laptop or VPS]:")
+    print(json.dumps(remote_cfg, indent=2))
+
+    print("\n[Option B: Local Access — for AI clients running directly on this machine]:")
+    print(json.dumps(local_cfg, indent=2))
+
+    # Section 2: Claude Code CLI
+    print("\n" + "-" * 80)
+    print(" 2️⃣  CLAUDE CODE CLI (One-Line Add)")
+    print("-" * 80)
+    print(f'claude mcp add home-browser -- ssh {host_target} "{scrapling_bin}"')
+
+    # Section 3: Muse & Groq Python Bots
+    print("\n" + "-" * 80)
+    print(" 3️⃣  MUSE & GROQ PYTHON BOTS (Direct SDK)")
+    print("-" * 80)
+    print(f"""from hbm import HomeBrowser
+
+# Connect to home IP (use host=None if running directly on this machine):
+hb = HomeBrowser(host="{host_target if ts_ip else ''}")
+
+# Fetch any page (bypasses Cloudflare & anti-bot, returns clean LLM Markdown):
+markdown = hb.fetch_markdown("https://amazon.com")
+print(markdown)
+""")
+
+    # Section 4: Natural Language Agent Prompt
+    print("-" * 80)
+    print(" 4️⃣  AI AGENT PROMPT (What to tell Muse, Groq bot, or Claude)")
+    print("-" * 80)
+    print("""Copy and paste this instruction into your Muse bot or AI agent prompt:
+
+"You have access to the 'home-browser' MCP tool. Whenever you need to browse,
+search Amazon, read articles, or bypass Cloudflare/anti-bot protection, use
+the home-browser tool to fetch the web page through my residential IP."
+""")
+
+    # Section 5: Handy Commands
+    print("=" * 80)
+    print("  💡 Handy Commands:")
+    print(f"     {hbm_call} fetch amazon.com       # Test stealth fetch in clean Markdown")
+    print(f"     {hbm_call} login amazon.com       # Open visible browser to log in with 2FA")
+    print(f"     {hbm_call} test                   # Run self-diagnostics")
+    print(f"     {hbm_call} config                 # Show these setup snippets anytime")
+    print("=" * 80 + "\n")
 
 
 # =====================================================================
@@ -492,6 +565,9 @@ def main():
     # setup
     subparsers.add_parser("setup", help="Auto-install all dependencies and browsers on home PC")
 
+    # config
+    subparsers.add_parser("config", help="Show copy-pasteable configuration for AI bots, Muse, Cursor, and Claude")
+
     # info
     subparsers.add_parser("info", help="Display Tailscale IP and connection info")
 
@@ -540,6 +616,8 @@ def main():
 
     if parsed.command == "setup":
         cmd_setup(parsed)
+    elif parsed.command == "config":
+        cmd_config(parsed)
     elif parsed.command == "login":
         cmd_login(parsed)
     elif parsed.command == "info":
