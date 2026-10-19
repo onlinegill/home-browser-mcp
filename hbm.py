@@ -431,6 +431,9 @@ class HomeBrowser:
 
     def fetch(self, url: str, extraction_type: str = "markdown", solve_cloudflare: bool = True, wait: int | None = None, network_idle: bool = True) -> dict:
         """Fetch URL with Scrapling stealth, returning raw result data."""
+        if not url.startswith("http://") and not url.startswith("https://"):
+            url = "https://" + url
+
         # Amazon and dynamic sites serve a 202 JS handshake that requires network settle:
         if wait is None and "amazon." in url.lower():
             wait = 2000
@@ -444,8 +447,15 @@ class HomeBrowser:
         if wait:
             args["wait"] = wait
 
-        plan = [{"tool": "stealthy_fetch", "args": args}]
+        # Scrapling >= 0.5 renamed tool to 'browser_fetch_once' (was 'stealthy_fetch' in 0.4.x)
+        plan = [{"tool": "browser_fetch_once", "args": args}]
         res = self.execute_plan(plan)
+        if not res or not res[0].get("ok"):
+            err_msg = str(res[0].get("output") if res else "")
+            if "Unknown tool" in err_msg or "not found" in err_msg:
+                plan = [{"tool": "stealthy_fetch", "args": args}]
+                res = self.execute_plan(plan)
+
         if not res or not res[0].get("ok"):
             err = res[0].get("output") if res else "Unknown error"
             raise RuntimeError(f"Fetch failed: {err}")
