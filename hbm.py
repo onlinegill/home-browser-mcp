@@ -77,9 +77,17 @@ def cmd_setup(args):
     # 1. Virtual environment setup
     print("\n[1/5] Checking Python virtual environment...")
     python_exe = sys.executable
-    if not os.path.exists(VENV_DIR):
+    if not os.path.exists(VENV_DIR) or not os.path.exists(VENV_PYTHON):
         print(f"Creating virtual environment in {VENV_DIR}...")
-        subprocess.run([python_exe, "-m", "venv", VENV_DIR], check=True)
+        if os.path.exists(VENV_DIR):
+            shutil.rmtree(VENV_DIR, ignore_errors=True)
+        try:
+            subprocess.run([python_exe, "-m", "venv", VENV_DIR], check=True)
+        except subprocess.CalledProcessError:
+            print("\n❌ Failed to create virtual environment.")
+            print("On Debian/Ubuntu/Proxmox, you need to install python3-venv:")
+            print("    apt install -y python3-venv python3-pip\n")
+            sys.exit(1)
     else:
         print(f"Using existing virtual environment at {VENV_DIR}")
 

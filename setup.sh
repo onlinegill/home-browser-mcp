@@ -25,7 +25,22 @@ fi
 
 echo "Using Python: $($PYTHON_BIN --version)"
 
-# 2. Run the automated Python setup
+# 2. Check for ensurepip / python3-venv on Debian/Ubuntu/Proxmox
+if ! $PYTHON_BIN -c "import ensurepip" >/dev/null 2>&1; then
+    echo "⚠️  Debian/Ubuntu/Proxmox detected without python3-venv."
+    if [ "$(id -u)" -eq 0 ]; then
+        echo "Installing python3-venv & python3-pip as root..."
+        apt-get update -qq && apt-get install -y python3-venv python3-pip
+    elif command -v sudo >/dev/null 2>&1; then
+        echo "Installing python3-venv & python3-pip with sudo..."
+        sudo apt-get update -qq && sudo apt-get install -y python3-venv python3-pip
+    else
+        echo "❌ Missing python3-venv. Please run: apt install -y python3-venv python3-pip"
+        exit 1
+    fi
+fi
+
+# 3. Run the automated Python setup
 $PYTHON_BIN hbm.py setup
 
 echo "Making ./hbm executable..."
