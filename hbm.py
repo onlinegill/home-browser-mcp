@@ -77,7 +77,8 @@ def cmd_setup(args):
     # 1. Virtual environment setup
     print("\n[1/5] Checking Python virtual environment...")
     python_exe = sys.executable
-    if not os.path.exists(VENV_DIR) or not os.path.exists(VENV_PYTHON):
+    venv_ok = os.path.exists(VENV_PYTHON) and subprocess.run([VENV_PYTHON, "-m", "pip", "--version"], capture_output=True).returncode == 0
+    if not venv_ok:
         print(f"Creating virtual environment in {VENV_DIR}...")
         if os.path.exists(VENV_DIR):
             shutil.rmtree(VENV_DIR, ignore_errors=True)
