@@ -46,15 +46,33 @@ $PYTHON_BIN hbm.py setup
 echo "Making ./hbm executable..."
 chmod +x hbm hbm.py mcp_drive.py
 
+# Link hbm to system PATH based on OS and permissions
 if [ -w "/usr/local/bin" ]; then
     ln -sf "$SCRIPT_DIR/hbm" /usr/local/bin/hbm
     echo "Linked 'hbm' globally to /usr/local/bin/hbm"
+elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    sudo ln -sf "$SCRIPT_DIR/hbm" /usr/local/bin/hbm
+    echo "Linked 'hbm' globally to /usr/local/bin/hbm"
 elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
     ln -sf "$SCRIPT_DIR/hbm" "$HOME/.local/bin/hbm"
-    echo "Linked 'hbm' globally to ~/.local/bin/hbm"
+    echo "Linked 'hbm' to ~/.local/bin/hbm"
+fi
+
+# Detect whether hbm is directly in the active PATH
+CMD_CALL="./hbm"
+if command -v hbm >/dev/null 2>&1; then
+    CMD_CALL="hbm"
+elif [ -x "/usr/local/bin/hbm" ] && echo ":$PATH:" | grep -q ":/usr/local/bin:"; then
+    CMD_CALL="hbm"
+elif [ -x "$HOME/.local/bin/hbm" ] && echo ":$PATH:" | grep -q ":$HOME/.local/bin:"; then
+    CMD_CALL="hbm"
 fi
 
 echo "============================================================"
 echo "  🎉 All Done! Test it right now with:"
-echo "     hbm fetch https://example.com"
+echo "     $CMD_CALL fetch https://example.com"
+if [ "$CMD_CALL" = "./hbm" ]; then
+    echo ""
+    echo "  (Use '$CMD_CALL' while in this directory, or add ~/.local/bin to your PATH)"
+fi
 echo "============================================================"
