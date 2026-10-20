@@ -28,20 +28,52 @@ import shutil
 import subprocess
 import sys
 
+IS_WINDOWS = sys.platform == "win32"
 MAX_OUT = 8000
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 VENV_DIR = os.path.join(SCRIPT_DIR, ".venv")
-VENV_BIN = os.path.join(VENV_DIR, "bin")
-VENV_PYTHON = os.path.join(VENV_BIN, "python")
+VENV_BIN = os.path.join(VENV_DIR, "Scripts" if IS_WINDOWS else "bin")
+VENV_PYTHON = os.path.join(VENV_BIN, "python.exe" if IS_WINDOWS else "python")
 DEFAULT_PROFILE_DIR = os.path.expanduser("~/.home-browser-profile")
 
 # Tailscale & System Utilities
 # =====================================================================
 
+def get_scrapling_mcp_bin() -> str:
+    """Return absolute path to scrapling-mcp executable, handling Windows vs Unix."""
+    exe_name = "scrapling-mcp.exe" if IS_WINDOWS else "scrapling-mcp"
+    target = os.path.join(VENV_BIN, exe_name)
+    if os.path.exists(target):
+        return target
+    fallback = os.path.join(VENV_BIN, "scrapling-mcp")
+    if os.path.exists(fallback):
+        return fallback
+    return shutil.which(exe_name) or shutil.which("scrapling-mcp") or target
+
+
+def get_tailscale_bin() -> str | None:
+    """Find tailscale executable path on Windows, macOS, or Linux."""
+    if shutil.which("tailscale"):
+        return "tailscale"
+    if IS_WINDOWS:
+        common_paths = [
+            r"C:\Program Files\Tailscale\tailscale.exe",
+            r"C:\Program Files (x86)\Tailscale\tailscale.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Tailscale\tailscale.exe")
+        ]
+        for p in common_paths:
+            if os.path.exists(p):
+                return p
+    return None
+
+
 def get_tailscale_ip() -> str | None:
     """Retrieve the local machine's Tailscale IPv4 address."""
+    ts_bin = get_tailscale_bin()
+    if not ts_bin:
+        return None
     try:
-        res = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, check=True)
+        res = subprocess.run([ts_bin, "ip", "-4"], capture_output=True, text=True, check=True)
         lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
         return lines[0] if lines else None
     except Exception:
@@ -50,7 +82,7 @@ def get_tailscale_ip() -> str | None:
 
 def is_tailscale_installed() -> bool:
     """Check if the tailscale CLI is installed on this system."""
-    return shutil.which("tailscale") is not None
+    return get_tailscale_bin() is not None
 
 
 def get_current_user() -> str:
@@ -111,9 +143,13 @@ def cmd_setup(args):
 
     # 3. Install browser binaries for Scrapling
     print("\n[3/5] Installing browser dependencies for Scrapling...")
-    scrapling_bin = os.path.join(VENV_BIN, "scrapling")
-    if os.path.exists(scrapling_bin):
-        subprocess.run([scrapling_bin, "install"], check=True)
+    scrapling_cli = os.path.join(VENV_BIN, "scrapling.exe" if IS_WINDOWS else "scrapling")
+    if not os.path.exists(scrapling_cli):
+        scrapling_cli = os.path.join(VENV_BIN, "scrapling")
+    if os.path.exists(scrapling_cli):
+        subprocess.run([scrapling_cli, "install"], check=True)
+    else:
+        subprocess.run([VENV_PYTHON, "-m", "patchright", "install", "chromium"], check=False)
 
     # 4. Optional Playwright MCP installation (if npm is available)
     print("\n[4/5] Checking Node.js / Playwright MCP...")
@@ -159,7 +195,7 @@ def cmd_config(args=None):
     user = get_current_user()
     ssh_ok = check_ssh_service()
     host_target = f"{user}@{ts_ip if ts_ip else '<home-pc-tailscale-ip>'}"
-    scrapling_bin = os.path.join(VENV_BIN, "scrapling-mcp")
+    scrapling_bin = get_scrapling_mcp_bin()
 
     # Detect if hbm is accessible as 'hbm' or './hbm'
     hbm_call = "hbm" if shutil.which("hbm") else "./hbm"
@@ -268,7 +304,7 @@ def cmd_info(args):
         "username": user,
         "ssh_target": host_target,
         "ssh_listening": ssh_ok,
-        "scrapling_mcp_path": os.path.join(VENV_BIN, "scrapling-mcp"),
+        "scrapling_mcp_path": get_scrapling_mcp_bin(),
         "python_path": VENV_PYTHON
     }, indent=2))
 
@@ -314,10 +350,16 @@ def cmd_login(args):
 
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
+        chrome_found = (
+            os.path.exists("/Applications/Google Chrome.app")
+            or os.path.exists(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
+            or os.path.exists(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
+            or IS_WINDOWS
+        )
         context = p.chromium.launch_persistent_context(
             user_data_dir=profile_dir,
             headless=False,
-            channel="chrome" if os.path.exists("/Applications/Google Chrome.app") else None,
+            channel="chrome" if chrome_found else None,
             args=["--no-first-run", "--no-default-browser-check"]
         )
         page = context.new_page() if not context.pages else context.pages[0]
@@ -344,9 +386,7 @@ def cmd_test(args):
     ssh_ok = check_ssh_service()
     print(f"2. Local SSH Service:  {'OK (listening)' if ssh_ok else 'WARNING (enable SSH server)'}")
 
-    scrapling_bin = os.path.join(VENV_BIN, "scrapling-mcp")
-    if not os.path.exists(scrapling_bin):
-        scrapling_bin = shutil.which("scrapling-mcp")
+    scrapling_bin = get_scrapling_mcp_bin()
 
     print(f"3. Scrapling MCP:      {'OK (' + str(scrapling_bin) + ')' if scrapling_bin else 'FAIL (Run ./hbm setup)'}")
 
