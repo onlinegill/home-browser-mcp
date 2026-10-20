@@ -10,6 +10,7 @@ On the machine at home you want to browse through:
 
 #### 🍏 macOS / 🐧 Linux / 🥧 Raspberry Pi:
 ```bash
+# (On a bare minimal Linux/Proxmox server without git, run: apt update && apt install -y git)
 git clone https://github.com/onlinegill/home-browser-mcp.git
 cd home-browser-mcp
 ./setup.sh
@@ -24,7 +25,7 @@ setup.bat
 *(Or in PowerShell: `.\setup.ps1`)*
 
 **The setup script does everything automatically:**
-1. ✅ **Detects OS & Python**: Configures environment across macOS, Linux (Debian, Ubuntu, Proxmox, Arch), and Raspberry Pi.
+1. ✅ **Detects OS & Prereqs**: Verifies environment across macOS, Linux (Debian, Ubuntu, Proxmox, Arch), and Windows, auto-installing Git if missing.
 2. ✅ **Auto-installs System Packages**: Automatically detects and installs missing `python3-venv` / `pip` on Debian/Ubuntu/Proxmox systems.
 3. ✅ **Tailscale Network Check**: Checks for Tailscale; if missing, optionally offers one-click install so remote bots can connect without router port-forwarding.
 4. ✅ **Virtual Environment & Dependencies**: Initializes isolated `.venv` and installs MCP + Scrapling stealth engines (`patchright`, `curl-cffi`, `mcp`).

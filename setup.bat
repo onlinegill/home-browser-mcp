@@ -22,6 +22,19 @@ if %ERRORLEVEL% EQU 0 (
 echo Using Python:
 %PYTHON_BIN% --version
 
+REM Check Git
+where git >nul 2>nul
+if %ERRORLEVEL% NEQ 0 (
+    echo [NOTICE] Git is not installed. Checking for winget...
+    where winget >nul 2>nul
+    if %ERRORLEVEL% EQU 0 (
+        echo Installing Git via winget...
+        winget install --id Git.Git -e --source winget --silent --accept-source-agreements --accept-package-agreements
+    ) else (
+        echo [NOTICE] Git not found. You can install it from https://git-scm.com/download/win
+    )
+)
+
 %PYTHON_BIN% "%SCRIPT_DIR%hbm.py" setup
 
 echo.

@@ -12,7 +12,38 @@ echo "============================================================"
 echo "  🚀 Starting Home-Browser MCP One-Click Setup"
 echo "============================================================"
 
-# 1. Detect Python 3
+# 1. Check Git installation
+if ! command -v git >/dev/null 2>&1; then
+    echo "⚠️  Git not detected. Installing Git..."
+    if [ "$(uname)" = "Darwin" ]; then
+        if command -v brew >/dev/null 2>&1; then
+            brew install git || true
+        else
+            echo "Prompting Xcode Command Line Tools for Git..."
+            xcode-select --install 2>/dev/null || true
+        fi
+    elif [ "$(id -u)" -eq 0 ]; then
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y git
+        elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y git
+        elif command -v pacman >/dev/null 2>&1; then
+            pacman -Sy --noconfirm git
+        fi
+    elif command -v sudo >/dev/null 2>&1; then
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y git
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y git
+        elif command -v pacman >/dev/null 2>&1; then
+            sudo pacman -Sy --noconfirm git
+        fi
+    else
+        echo "Note: Git could not be installed automatically. Please install git."
+    fi
+fi
+
+# 2. Detect Python 3
 PYTHON_BIN=""
 if command -v python3 >/dev/null 2>&1; then
     PYTHON_BIN="python3"

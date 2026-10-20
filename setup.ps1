@@ -21,7 +21,19 @@ if (-not $PythonCmd) {
 $pyVersion = & $PythonCmd.Source --version
 Write-Host "Using Python: $pyVersion" -ForegroundColor Green
 
-# 2. Check Tailscale on Windows
+# 2. Check Git on Windows
+$GitCmd = Get-Command git -ErrorAction SilentlyContinue
+if (-not $GitCmd) {
+    Write-Host "Git is not installed. Checking for winget..." -ForegroundColor Yellow
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Host "Installing Git via winget..." -ForegroundColor Green
+        winget install --id Git.Git -e --source winget --silent --accept-source-agreements --accept-package-agreements
+    } else {
+        Write-Host "Please install Git from https://git-scm.com/download/win" -ForegroundColor Yellow
+    }
+}
+
+# 3. Check Tailscale on Windows
 $TailscaleCmd = Get-Command tailscale -ErrorAction SilentlyContinue
 $tsInstalled = ($TailscaleCmd -ne $null) -or (Test-Path "C:\Program Files\Tailscale\tailscale.exe")
 
