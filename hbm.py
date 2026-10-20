@@ -42,9 +42,15 @@ def get_tailscale_ip() -> str | None:
     """Retrieve the local machine's Tailscale IPv4 address."""
     try:
         res = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, check=True)
-        return res.stdout.strip().splitlines()[0]
+        lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
+        return lines[0] if lines else None
     except Exception:
         return None
+
+
+def is_tailscale_installed() -> bool:
+    """Check if the tailscale CLI is installed on this system."""
+    return shutil.which("tailscale") is not None
 
 
 def get_current_user() -> str:
@@ -134,8 +140,10 @@ def cmd_setup(args):
     if ts_ip:
         print(f" Tailscale IP:  {ts_ip}")
         print(f" SSH Target:    {user}@{ts_ip}")
+    elif is_tailscale_installed():
+        print(" Tailscale:     Installed but not active. Run 'tailscale up' to connect.")
     else:
-        print(" Tailscale:     Not detected or not logged in. Run 'tailscale up' to connect.")
+        print(" Tailscale:     Not installed (Optional for remote bots: https://tailscale.com/download)")
 
     print(f" SSH Service:   {'Running (Port 22 open)' if ssh_ok else 'Port 22 not responding (Enable Remote Login / sshd)'}")
     print("=" * 60)
@@ -164,8 +172,11 @@ def cmd_config(args=None):
     if ts_ip:
         print(f"  • Tailscale IP    : {ts_ip}")
         print(f"  • SSH Remote Host : {host_target}")
+    elif is_tailscale_installed():
+        print("  • Tailscale IP    : Not active (Run 'tailscale up' to get IP)")
+        print(f"  • SSH Remote Host : {user}@<tailscale-ip>")
     else:
-        print("  • Tailscale IP    : Not connected (Run 'tailscale up' to get IP)")
+        print("  • Tailscale IP    : Not installed (Optional for remote bots: https://tailscale.com/download)")
         print(f"  • SSH Remote Host : {user}@<tailscale-ip>")
     print(f"  • SSH Port 22     : {'Active & Reachable' if ssh_ok else 'Not detected (Ensure sshd is running)'}")
     print(f"  • Scrapling MCP   : {scrapling_bin}")

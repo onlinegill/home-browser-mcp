@@ -40,7 +40,41 @@ if ! $PYTHON_BIN -c "import ensurepip" >/dev/null 2>&1; then
     fi
 fi
 
-# 3. Run the automated Python setup
+# 3. Optional Tailscale Detection & Prompt
+if ! command -v tailscale >/dev/null 2>&1; then
+    echo ""
+    echo "------------------------------------------------------------"
+    echo "  🌐 Tailscale Network (Recommended for Remote AI Bots)"
+    echo "------------------------------------------------------------"
+    echo "Tailscale connects cloud bots (Muse, Groq) to your home computer"
+    echo "privately without needing open router ports."
+    echo ""
+    INSTALL_TS="n"
+    if [ -t 0 ] || [ -c /dev/tty ]; then
+        read -r -p "Would you like to install Tailscale now? [y/N]: " INSTALL_TS < /dev/tty 2>/dev/null || INSTALL_TS="n"
+    fi
+    if [[ "$INSTALL_TS" =~ ^[Yy]$ ]]; then
+        echo "Installing Tailscale..."
+        if [ "$(uname)" = "Darwin" ]; then
+            if command -v brew >/dev/null 2>&1; then
+                brew install --cask tailscale 2>/dev/null || brew install tailscale 2>/dev/null || true
+            else
+                echo "Please install Tailscale for macOS from: https://tailscale.com/download/mac"
+            fi
+        else
+            # Linux (Debian, Ubuntu, Proxmox, Raspberry Pi, etc.)
+            curl -fsSL https://tailscale.com/install.sh | sh || true
+        fi
+        echo "👉 Once installed, run 'tailscale up' to log in and get your private IP."
+        echo ""
+    else
+        echo "Skipping Tailscale install (you can install anytime from https://tailscale.com/download)."
+    fi
+elif ! tailscale ip -4 >/dev/null 2>&1; then
+    echo "💡 Note: Tailscale is installed but not active. Run 'tailscale up' to connect."
+fi
+
+# 4. Run the automated Python setup
 $PYTHON_BIN hbm.py setup
 
 echo "Making ./hbm executable..."

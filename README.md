@@ -15,11 +15,13 @@ cd home-browser-mcp
 ```
 
 **`./setup.sh` does everything automatically:**
-1. ✅ Creates an isolated Python virtual environment.
-2. ✅ Installs MCP & Scrapling Stealth dependencies (`patchright`, `curl-cffi`).
-3. ✅ Downloads required browser binaries (`scrapling install`).
-4. ✅ Detects your Tailscale IP and verifies SSH port 22.
-5. ✅ Outputs exact, ready-to-copy configs for **Muse**, **Groq**, **Claude Desktop**, and **Cursor**.
+1. ✅ **Detects OS & Python**: Configures environment across macOS, Linux (Debian, Ubuntu, Proxmox, Arch), and Raspberry Pi.
+2. ✅ **Auto-installs System Packages**: Automatically detects and installs missing `python3-venv` / `pip` on Debian/Ubuntu/Proxmox systems.
+3. ✅ **Tailscale Network Check**: Checks for Tailscale; if missing, optionally offers one-click install so remote bots can connect without router port-forwarding.
+4. ✅ **Virtual Environment & Dependencies**: Initializes isolated `.venv` and installs MCP + Scrapling stealth engines (`patchright`, `curl-cffi`, `mcp`).
+5. ✅ **Stealth Browser Binaries**: Downloads required stealth browser drivers (`scrapling install`).
+6. ✅ **Global CLI Shortcut**: Symlinks `hbm` to your PATH (`/usr/local/bin/hbm` or `~/.local/bin/hbm`).
+7. ✅ **Instant Integration Configs**: Automatically outputs personalized, copy-pasteable JSON configs and prompts for **Muse**, **Groq**, **Claude Desktop**, and **Cursor**.
 
 Test it immediately on your home machine:
 ```bash
